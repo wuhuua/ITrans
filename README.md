@@ -2,7 +2,7 @@
 
 ## :black_nib: 基于自顶向下方法可靠传输协议的实现:black_nib:
 
-### ![brightgreen](https://img.shields.io/badge/-轻量级-brightgreen)![important](https://img.shields.io/badge/-适用于UNIX平台-important)![blueviolet](https://img.shields.io/badge/-rdt和GBN两种版本实现-blueviolet)![informational](https://img.shields.io/badge/-基于MuLan开源协议开源-informational)![red](https://img.shields.io/badge/-中文-red)
+### ![brightgreen](https://img.shields.io/badge/-轻量级-brightgreen)![important](https://img.shields.io/badge/-适用于任何平台-important)![blueviolet](https://img.shields.io/badge/-rdt和GBN两种版本实现-blueviolet)![informational](https://img.shields.io/badge/-基于MuLan开源协议开源-informational)![red](https://img.shields.io/badge/-中文-red)
 
 ![Language](https://img.shields.io/badge/language-c-brightgreen)
 
@@ -30,18 +30,28 @@ gcc/clang gcc建议8.3以上，编译器需要支持c++20新标准
 如果你是Mac用户，请使用homebrew更新你的bison工具，Mac原生bison工具版本落后太多
 
 ## :thinking: 如何编译:question:
+```shell
+gcc -Wno-return-type prog.c
+```
 
-// TODO
 
 ## :alarm_clock: 如何运行
+```shell
+>> ./a.out
 
-// TODO
+Enter the number of messages to simulate: 
+Enter  packet loss probability [enter 0.0 for no loss]:
+Enter packet corruption probability [0.0 for no corruption]:
+Enter average time between messages from sender's layer5 [ > 0.0]:
+Enter TRACE:
+```
+根据需要的配置填入参数即可
 
 
 
-## :memo:查看日志
+## :memo:实现备注
 
-// TODO
+目前rdt文件夹下的实现基于rdt3.0，从A端向B端发送数据，半双工
 
 ## :sparkling_heart:License
 

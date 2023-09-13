@@ -1,4 +1,13 @@
 #include <stdio.h>
+#pragma GCC diagnostic ignored "-Wformat="
+#pragma GCC diagnostic ignored "-Wreturn-type"
+#pragma GCC diagnostic ignored "-Wimplicit-int"
+#pragma GCC diagnostic ignored "-Wbuiltin-declaration-mismatch"
+#pragma GCC diagnostic ignored "-Wimplicit-function-declaration"
+#pragma GCC diagnostic ignored "-Wpragmas"
+
+
+
 
 /* ******************************************************************
  ALTERNATING BIT AND GO-BACK-N NETWORK EMULATOR: VERSION 1.1  J.F.Kurose
@@ -37,13 +46,118 @@ struct pkt {
 /********* STUDENTS WRITE THE NEXT SEVEN ROUTINES *********/
 
 
+/****************** ADDITONAL VARIABLE AND ALIAS BELOW ***********
+The code below is additonal variable and alias called:
+******************************************************************/
+
+// def for status
+typedef char status;
+
+// def for clean code
+#define A 0
+#define B 1
+#define MESSAGELEN 20
+#define TIMEINCREMENT 12.0
+
+/* def for a and b status
+*  bytes:  -0-     -1-     -2-  -3-  -4-  -5-  -6-  -7-
+*  def:   seqNo  waiting   null null null null null null
+*/
+status status_a;
+status status_b;
+
+// saved pkt for re-send
+struct pkt save_pkt;
+
+// ACK pkt for ack reply
+struct pkt ack_pkt;
+
+
+/****************** ADDITONAL FUNCTION BELOW ***********
+The code below is the additional function base on additonal variable:
+******************************************************************/
+
+// This is additional func to test is package is correct, using TCP algorithm 
+checkRcv(packet)
+  struct pkt packet;
+{
+  int payloadSum=0;
+  for(int i=0;i<MESSAGELEN;i++){
+    payloadSum+=packet.payload[i];
+  }
+  return packet.checksum==packet.acknum+packet.seqnum+payloadSum;
+}
+
+// check the seq number return 1 or 0
+checkSeq(status status_){
+  return (status_&0B10000000)!=0;
+}
+
+// check is waiting ACK mode return 1 or 0
+checkWaiting(status status_){
+  return (status_&0B01000000)!=0;
+}
+
+// change seq
+changeSeq(status* status_){
+  if(checkSeq(*status_)){
+    *status_&=0B01111111;
+  }else{
+    *status_|=0B10000000;
+  }
+}
+
+// change waiting
+changeWaiting(status* status_){
+  if(checkWaiting(*status_)){
+    *status_&=0B10111111;
+  }else{
+    *status_|=0B01000000;
+  }
+}
+
+// package message into a package with a deep copy
+struct pkt packageMsg(message,status_)
+  struct msg message;
+  status status_;
+{
+  struct pkt packet;
+  packet.seqnum=checkSeq(status_);
+  packet.acknum=1;
+  packet.checksum=packet.acknum+packet.seqnum;
+  for(int i=0;i<MESSAGELEN;i++){
+    packet.payload[i]=message.data[i];
+    packet.checksum+=packet.payload[i];
+  }
+  return packet;
+}
+
+void setACK(int ackNum,int seqNum)
+{
+  ack_pkt.acknum=ackNum;
+  ack_pkt.seqnum=seqNum;
+  ack_pkt.checksum=ack_pkt.acknum+ack_pkt.seqnum;
+}
+
+struct pkt initACK(){
+  for(int i=0;i<MESSAGELEN;i++){
+    ack_pkt.payload[i]=0;
+  }
+  setACK(1,0);
+}
 
 
 /* called from layer 5, passed the data to be sent to other side */
 A_output(message)
   struct msg message;
 {
-
+  if(checkWaiting(status_a)){
+    return -1;
+  }
+  save_pkt=packageMsg(message);
+  tolayer3(A, save_pkt);
+  starttimer(A,TIMEINCREMENT);
+  changeWaiting(&status_a);
 }
 
 B_output(message)  /* need be completed only for extra credit */
@@ -56,19 +170,26 @@ B_output(message)  /* need be completed only for extra credit */
 A_input(packet)
   struct pkt packet;
 {
-
+  if(!checkWaiting(status_a)||!checkRcv(packet)||packet.seqnum!=checkSeq(status_a)||packet.acknum==0){
+    return -1;
+  }
+  stoptimer(A);
+  changeSeq(&status_a);
+  changeWaiting(&status_a);
 }
 
 /* called when A's timer goes off */
 A_timerinterrupt()
 {
-
+  tolayer3(A,save_pkt);
+  starttimer(A,TIMEINCREMENT);
 }  
 
 /* the following routine will be called once (only) before any other */
 /* entity A routines are called. You can use it to do any initialization */
 A_init()
 {
+  status_a &= 0B00111111;
 }
 
 
@@ -78,6 +199,22 @@ A_init()
 B_input(packet)
   struct pkt packet;
 {
+  // seqnum incorrect means A resend, just send back ACK
+  if(packet.seqnum!=checkSeq(status_b)){
+    setACK(1,packet.seqnum);
+    tolayer3(B,ack_pkt);
+    return;
+  }
+  // packet is broken, just send back NAK
+  if(!checkRcv(packet)){
+    setACK(0,1-checkSeq(status_b));
+    tolayer3(B,ack_pkt);
+    return;
+  }
+  setACK(1,checkSeq(status_b));
+  tolayer3(B,ack_pkt);
+  changeSeq(&status_b);
+  tolayer5(B,packet.payload);
 }
 
 /* called when B's timer goes off */
@@ -89,7 +226,11 @@ B_timerinterrupt()
 /* entity B routines are called. You can use it to do any initialization */
 B_init()
 {
+    // receiver must be waiting when initializing
+    status_b &= 0B01111111;
+    initACK();
 }
+
 
 
 /*****************************************************************
@@ -251,7 +392,7 @@ init()                         /* initialize the simulator */
     printf("It is likely that random number generation on your machine\n" ); 
     printf("is different from what this emulator expects.  Please take\n");
     printf("a look at the routine jimsrand() in the emulator code. Sorry. \n");
-    exit();
+    exit(0);
     }
 
    ntolayer3 = 0;
